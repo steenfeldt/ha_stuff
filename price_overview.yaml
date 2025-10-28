@@ -1,0 +1,130 @@
+type: custom:button-card
+name: Prisoversigt
+show_icon: false
+styles:
+  card:
+    - background: rgba(0,0,0,0.2)
+    - border-radius: 12px
+    - padding: 15px
+  name:
+    - font-size: 1.1em
+    - font-weight: 500
+    - margin-bottom: 10px
+    - padding: 0
+  grid:
+    - grid-template-areas: "\"n\" \"current\" \"chart\""
+    - grid-template-rows: auto auto 1fr
+    - padding: 0
+  custom_fields:
+    current:
+      - margin-bottom: 15px
+      - padding: 10px
+      - border-radius: 8px
+      - text-align: center
+    chart:
+      - width: 100%
+custom_fields:
+  current: |
+    [[[
+      const currentPrice = entity.state;
+      const price = parseFloat(currentPrice);
+      
+      let color, textColor;
+      if (price < 1.7) {
+        color = 'rgba(46, 204, 113, 0.3)';
+        textColor = '#2ecc71';
+      } else if (price < 2.0) {
+        color = 'rgba(241, 196, 15, 0.3)';
+        textColor = '#f1c40f';
+      } else if (price < 2.5) {
+        color = 'rgba(243, 156, 18, 0.3)';
+        textColor = '#f39c12';
+      } else {
+        color = 'rgba(231, 76, 60, 0.3)';
+        textColor = '#e74c3c';
+      }
+      
+      return `
+        <div style="background: ${color}; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 0.85em; margin-bottom: 4px; opacity: 0.8;">Nuværende pris</div>
+          <div style="font-size: 1.8em; font-weight: bold; color: ${textColor};">${price.toFixed(2)} kr/kWh</div>
+        </div>
+      `;
+    ]]]
+  chart: |
+    [[[
+      const today = entity.attributes.raw_today;
+      const tomorrow = entity.attributes.raw_tomorrow;
+      if (!today) return '<div>No data</div>';
+      
+      const periods = [
+        {name: 'Night', icon: '🌙', start: 0, end: 5, hours: '00-05', data: today},
+        {name: 'Morning', icon: '☀️', start: 5, end: 12, hours: '05-12', data: today},
+        {name: 'Afternoon', icon: '⛅', start: 12, end: 17, hours: '12-17', data: today},
+        {name: 'Dinner', icon: '🍽️', start: 17, end: 19, hours: '17-19', data: today},
+        {name: 'Evening', icon: '🌅', start: 19, end: 24, hours: '19-24', data: today},
+        {name: 'Next Night', icon: '🌙', start: 0, end: 5, hours: '00-05', data: tomorrow}
+      ];
+      
+      let maxPrice = 0;
+      const periodData = periods.map(period => {
+        if (!period.data) return {...period, avg: 0, min: 0, max: 0, noData: true};
+        
+        const prices = period.data.filter(e => {
+          const hour = new Date(e.hour).getHours();
+          return hour >= period.start && hour < period.end;
+        }).map(e => e.price);
+        
+        if (prices.length === 0) return {...period, avg: 0, min: 0, max: 0, noData: true};
+        
+        const avg = prices.reduce((a,b) => a+b, 0) / prices.length;
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        if (avg > maxPrice) maxPrice = avg;
+        return {...period, avg, min, max, noData: false};
+      });
+      
+      let output = '';
+      periodData.forEach(pd => {
+        if (pd.noData) {
+          output += `
+            <div style="margin: 10px 0;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.9em;">
+                <span>${pd.icon} ${pd.name} <span style="color: rgba(255,255,255,0.6); font-size: 0.85em;">(${pd.hours})</span></span>
+                <span style="font-weight: 600; color: rgba(255,255,255,0.4);">-</span>
+              </div>
+              <div style="background: rgba(255,255,255,0.1); border-radius: 4px; height: 26px; position: relative;">
+                <div style="background: rgba(100,100,100,0.3); border-radius: 4px; height: 100%; width: 100%; display: flex; align-items: center; justify-content: center; font-size: 0.75em;">
+                  No data yet
+                </div>
+              </div>
+            </div>
+          `;
+          return;
+        }
+        
+        const width = (pd.avg / maxPrice * 100).toFixed(1);
+        let color;
+        if (pd.avg < 1.7) color = 'rgba(46, 204, 113, 0.8)';
+        else if (pd.avg < 2.0) color = 'rgba(241, 196, 15, 0.8)';
+        else if (pd.avg < 2.5) color = 'rgba(243, 156, 18, 0.8)';
+        else color = 'rgba(231, 76, 60, 0.8)';
+        
+        output += `
+          <div style="margin: 10px 0;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.9em;">
+              <span>${pd.icon} ${pd.name} <span style="color: rgba(255,255,255,0.6); font-size: 0.85em;">(${pd.hours})</span></span>
+              <span style="font-weight: 600;">${pd.avg.toFixed(2)} kr</span>
+            </div>
+            <div style="background: rgba(255,255,255,0.1); border-radius: 4px; height: 26px; position: relative;">
+              <div style="background: ${color}; border-radius: 4px; height: 100%; width: ${width}%; display: flex; align-items: center; padding-left: 8px; font-size: 0.75em; font-weight: 500;">
+                ${pd.min.toFixed(2)}-${pd.max.toFixed(2)}
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      
+      return output;
+    ]]]
+entity: sensor.elpriser
