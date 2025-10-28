@@ -10,7 +10,7 @@ styles:
   name:
     - font-size: 1.1em
     - font-weight: 500
-    - margin-bottom: 5px
+    - margin-bottom: 10px
     - padding: 0
   grid:
     - grid-template-areas: "\"n\" \"current\" \"chart\""
@@ -18,37 +18,72 @@ styles:
     - padding: 0
   custom_fields:
     current:
-      - margin-bottom: 5px
-      - padding: 10px
-      - border-radius: 8px
-      - text-align: center
+      - margin-bottom: 15px
     chart:
       - width: 100%
 custom_fields:
   current: |
     [[[
-      const currentPrice = entity.state;
-      const price = parseFloat(currentPrice);
+      const today = entity.attributes.raw_today;
+      const currentPrice = parseFloat(entity.state);
+      if (!today) return '<div>No data</div>';
       
-      let color, textColor;
-      if (price < 1.7) {
-        color = 'rgba(46, 204, 113, 0.3)';
-        textColor = '#2ecc71';
-      } else if (price < 2.0) {
-        color = 'rgba(241, 196, 15, 0.3)';
-        textColor = '#f1c40f';
-      } else if (price < 2.5) {
-        color = 'rgba(243, 156, 18, 0.3)';
-        textColor = '#f39c12';
-      } else {
-        color = 'rgba(231, 76, 60, 0.3)';
-        textColor = '#e74c3c';
+      const currentHour = new Date().getHours();
+      
+      // Group by hour and calculate averages
+      const hourlyData = {};
+      today.forEach(entry => {
+        const hour = new Date(entry.hour).getHours();
+        if (!hourlyData[hour]) {
+          hourlyData[hour] = [];
+        }
+        hourlyData[hour].push(entry.price);
+      });
+      
+      const hourlyAverages = [];
+      for (let h = 0; h < 24; h++) {
+        if (hourlyData[h]) {
+          const avg = hourlyData[h].reduce((a,b) => a+b, 0) / hourlyData[h].length;
+          hourlyAverages.push({hour: h, price: avg});
+        }
       }
       
+      const allPrices = hourlyAverages.map(e => e.price);
+      const maxAllPrice = Math.max(...allPrices);
+      const minAllPrice = Math.min(...allPrices);
+      const priceRange = maxAllPrice - minAllPrice;
+      
+      let textColor;
+      if (currentPrice < 1.5) textColor = '#2ecc71';
+      else if (currentPrice < 2.0) textColor = '#f1c40f';
+      else if (currentPrice < 2.5) textColor = '#f39c12';
+      else textColor = '#e74c3c';
+      
+      let graph = '<div style="display: flex; align-items: flex-end; gap: 2px; height: 60px; margin-bottom: 8px;">';
+      
+      hourlyAverages.forEach((entry) => {
+        const height = ((entry.price - minAllPrice) / priceRange * 100).toFixed(1);
+        const isCurrent = entry.hour === currentHour;
+        
+        let color;
+        if (entry.price < 1.5) color = 'rgba(46, 204, 113, 0.7)';
+        else if (entry.price < 2.0) color = 'rgba(241, 196, 15, 0.7)';
+        else if (entry.price < 2.5) color = 'rgba(243, 156, 18, 0.7)';
+        else color = 'rgba(231, 76, 60, 0.7)';
+        
+        const border = isCurrent ? 'border: 2px solid white; box-shadow: 0 0 8px rgba(255,255,255,0.6);' : '';
+        
+        graph += `<div style="flex: 1; height: ${height}%; background: ${color}; border-radius: 2px 2px 0 0; ${border}"></div>`;
+      });
+      
+      graph += '</div>';
+      
       return `
-        <div style="background: ${color}; border-radius: 8px; padding: 12px;">
-          <div style="display: none; font-size: 0.85em; margin-bottom: 0px; opacity: 0.8;">Nuværende pris</div>
-          <div style="font-size: 1.4em; font-weight: bold; color: ${textColor};">${price.toFixed(2)} kr/kWh</div>
+        <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px;">
+          ${graph}
+          <div style="text-align: center;">
+            <div style="font-size: 1.4em; font-weight: bold; color: ${textColor};">${currentPrice.toFixed(2)} kr/KwH</div>
+          </div>
         </div>
       `;
     ]]]
@@ -57,6 +92,8 @@ custom_fields:
       const today = entity.attributes.raw_today;
       const tomorrow = entity.attributes.raw_tomorrow;
       if (!today) return '<div>No data</div>';
+      
+      const currentHour = new Date().getHours();
       
       const periods = [
         {name: 'Night', icon: '🌙', start: 0, end: 5, hours: '00-05', data: today},
@@ -69,32 +106,36 @@ custom_fields:
       
       let maxPrice = 0;
       const periodData = periods.map(period => {
-        if (!period.data) return {...period, avg: 0, min: 0, max: 0, noData: true};
+        if (!period.data) return {...period, avg: 0, min: 0, max: 0, noData: true, isCurrent: false};
         
         const prices = period.data.filter(e => {
           const hour = new Date(e.hour).getHours();
           return hour >= period.start && hour < period.end;
         }).map(e => e.price);
         
-        if (prices.length === 0) return {...period, avg: 0, min: 0, max: 0, noData: true};
+        if (prices.length === 0) return {...period, avg: 0, min: 0, max: 0, noData: true, isCurrent: false};
         
         const avg = prices.reduce((a,b) => a+b, 0) / prices.length;
         const min = Math.min(...prices);
         const max = Math.max(...prices);
         if (avg > maxPrice) maxPrice = avg;
-        return {...period, avg, min, max, noData: false};
+        
+        // Check if current hour falls in this period
+        const isCurrent = currentHour >= period.start && currentHour < period.end && period.data === today;
+        
+        return {...period, avg, min, max, noData: false, isCurrent};
       });
       
       let output = '';
       periodData.forEach(pd => {
         if (pd.noData) {
           output += `
-            <div style="margin: 5px 0;">
+            <div style="margin: 10px 0;">
               <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.9em;">
                 <span>${pd.icon} ${pd.name} <span style="color: rgba(255,255,255,0.6); font-size: 0.85em;">(${pd.hours})</span></span>
                 <span style="font-weight: 600; color: rgba(255,255,255,0.4);">-</span>
               </div>
-              <div style="background: rgba(255,255,255,0.1); border-radius: 4px; height: 26px; position: relative;">
+              <div style="background: rgba(255,255,255,0.1); border-radius: 4px; height: 20px; position: relative;">
                 <div style="background: rgba(100,100,100,0.3); border-radius: 4px; height: 100%; width: 100%; display: flex; align-items: center; justify-content: center; font-size: 0.75em;">
                   No data yet
                 </div>
@@ -106,10 +147,12 @@ custom_fields:
         
         const width = (pd.avg / maxPrice * 100).toFixed(1);
         let color;
-        if (pd.avg < 1.7) color = 'rgba(46, 204, 113, 0.8)';
+        if (pd.avg < 1.5) color = 'rgba(46, 204, 113, 0.8)';
         else if (pd.avg < 2.0) color = 'rgba(241, 196, 15, 0.8)';
         else if (pd.avg < 2.5) color = 'rgba(243, 156, 18, 0.8)';
         else color = 'rgba(231, 76, 60, 0.8)';
+        
+        const highlight = pd.isCurrent ? 'border: 2px solid white; box-shadow: 0 0 10px rgba(255,255,255,0.4);' : '';
         
         output += `
           <div style="margin: 10px 0;">
@@ -117,7 +160,7 @@ custom_fields:
               <span>${pd.icon} ${pd.name} <span style="color: rgba(255,255,255,0.6); font-size: 0.85em;">(${pd.hours})</span></span>
               <span style="font-weight: 600;">${pd.avg.toFixed(2)} kr</span>
             </div>
-            <div style="background: rgba(255,255,255,0.1); border-radius: 4px; height: 22px; position: relative;">
+            <div style="background: rgba(255,255,255,0.1); border-radius: 4px; height: 20px; position: relative; ${highlight}">
               <div style="background: ${color}; border-radius: 4px; height: 100%; width: ${width}%; display: flex; align-items: center; padding-left: 8px; font-size: 0.75em; font-weight: 500;">
                 ${pd.min.toFixed(2)}-${pd.max.toFixed(2)}
               </div>
