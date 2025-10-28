@@ -104,11 +104,11 @@ custom_fields:
       
       // Define all possible periods
       const periodDefinitions = [
-        {name: 'Night', icon: '🌙', start: 0, end: 5, hours: '00-05'},
-        {name: 'Morning', icon: '☀️', start: 5, end: 12, hours: '05-12'},
-        {name: 'Afternoon', icon: '⛅', start: 12, end: 17, hours: '12-17'},
-        {name: 'Dinner', icon: '🍽️', start: 17, end: 19, hours: '17-19'},
-        {name: 'Evening', icon: '🌅', start: 19, end: 24, hours: '19-24'}
+        {name: 'Nat', icon: '🌙', start: 0, end: 5, hours: '00-05'},
+        {name: 'Morgen', icon: '☀️', start: 5, end: 12, hours: '05-12'},
+        {name: 'Eftermiddag', icon: '⛅', start: 12, end: 17, hours: '12-17'},
+        {name: 'Aftensmad', icon: '🍽️', start: 17, end: 19, hours: '17-19'},
+        {name: 'Aften', icon: '🌅', start: 19, end: 24, hours: '19-24'}
       ];
       
       // Find next 24 hours of periods starting from current hour
