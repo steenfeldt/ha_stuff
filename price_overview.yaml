@@ -1,6 +1,7 @@
 type: custom:button-card
 name: Prisoversigt
 show_icon: false
+show_name: false
 styles:
   card:
     - background: rgba(0,0,0,0.2)
@@ -9,7 +10,7 @@ styles:
   name:
     - font-size: 1.1em
     - font-weight: 500
-    - margin-bottom: 10px
+    - margin-bottom: 5px
     - padding: 0
   grid:
     - grid-template-areas: "\"n\" \"current\" \"chart\""
@@ -17,7 +18,7 @@ styles:
     - padding: 0
   custom_fields:
     current:
-      - margin-bottom: 15px
+      - margin-bottom: 5px
       - padding: 10px
       - border-radius: 8px
       - text-align: center
@@ -46,8 +47,8 @@ custom_fields:
       
       return `
         <div style="background: ${color}; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 0.85em; margin-bottom: 4px; opacity: 0.8;">Nuværende pris</div>
-          <div style="font-size: 1.8em; font-weight: bold; color: ${textColor};">${price.toFixed(2)} kr/kWh</div>
+          <div style="display: none; font-size: 0.85em; margin-bottom: 0px; opacity: 0.8;">Nuværende pris</div>
+          <div style="font-size: 1.4em; font-weight: bold; color: ${textColor};">${price.toFixed(2)} kr/kWh</div>
         </div>
       `;
     ]]]
@@ -88,7 +89,7 @@ custom_fields:
       periodData.forEach(pd => {
         if (pd.noData) {
           output += `
-            <div style="margin: 10px 0;">
+            <div style="margin: 5px 0;">
               <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.9em;">
                 <span>${pd.icon} ${pd.name} <span style="color: rgba(255,255,255,0.6); font-size: 0.85em;">(${pd.hours})</span></span>
                 <span style="font-weight: 600; color: rgba(255,255,255,0.4);">-</span>
@@ -116,7 +117,7 @@ custom_fields:
               <span>${pd.icon} ${pd.name} <span style="color: rgba(255,255,255,0.6); font-size: 0.85em;">(${pd.hours})</span></span>
               <span style="font-weight: 600;">${pd.avg.toFixed(2)} kr</span>
             </div>
-            <div style="background: rgba(255,255,255,0.1); border-radius: 4px; height: 26px; position: relative;">
+            <div style="background: rgba(255,255,255,0.1); border-radius: 4px; height: 22px; position: relative;">
               <div style="background: ${color}; border-radius: 4px; height: 100%; width: ${width}%; display: flex; align-items: center; padding-left: 8px; font-size: 0.75em; font-weight: 500;">
                 ${pd.min.toFixed(2)}-${pd.max.toFixed(2)}
               </div>
