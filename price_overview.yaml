@@ -94,18 +94,63 @@ custom_fields:
       if (!today) return '<div>No data</div>';
       
       const currentHour = new Date().getHours();
+      const now = new Date();
       
-      const periods = [
-        {name: 'Night', icon: '🌙', start: 0, end: 5, hours: '00-05', data: today},
-        {name: 'Morning', icon: '☀️', start: 5, end: 12, hours: '05-12', data: today},
-        {name: 'Afternoon', icon: '⛅', start: 12, end: 17, hours: '12-17', data: today},
-        {name: 'Dinner', icon: '🍽️', start: 17, end: 19, hours: '17-19', data: today},
-        {name: 'Evening', icon: '🌅', start: 19, end: 24, hours: '19-24', data: today},
-        {name: 'Next Night', icon: '🌙', start: 0, end: 5, hours: '00-05', data: tomorrow}
+      // Combine today and tomorrow data
+      const allData = [...today];
+      if (tomorrow) {
+        allData.push(...tomorrow);
+      }
+      
+      // Define all possible periods
+      const periodDefinitions = [
+        {name: 'Night', icon: '🌙', start: 0, end: 5, hours: '00-05'},
+        {name: 'Morning', icon: '☀️', start: 5, end: 12, hours: '05-12'},
+        {name: 'Afternoon', icon: '⛅', start: 12, end: 17, hours: '12-17'},
+        {name: 'Dinner', icon: '🍽️', start: 17, end: 19, hours: '17-19'},
+        {name: 'Evening', icon: '🌅', start: 19, end: 24, hours: '19-24'}
       ];
       
+      // Find next 24 hours of periods starting from current hour
+      const upcomingPeriods = [];
+      let hoursChecked = 0;
+      let dayOffset = 0;
+      
+      while (hoursChecked < 24 && upcomingPeriods.length < 6) {
+        const checkHour = (currentHour + hoursChecked) % 24;
+        
+        // If we wrapped around to next day
+        if (checkHour < currentHour && dayOffset === 0) {
+          dayOffset = 1;
+        }
+        
+        // Find which period this hour belongs to
+        for (let def of periodDefinitions) {
+          if (checkHour >= def.start && checkHour < def.end) {
+            // Check if we already have this period
+            const periodKey = `${def.name}-${dayOffset}`;
+            if (!upcomingPeriods.find(p => p.key === periodKey)) {
+              const isToday = dayOffset === 0;
+              const periodData = isToday ? today : tomorrow;
+              
+              upcomingPeriods.push({
+                ...def,
+                key: periodKey,
+                data: periodData,
+                dayOffset: dayOffset,
+                label: dayOffset === 0 ? def.name : `${def.name} (i morgen)`
+              });
+            }
+            break;
+          }
+        }
+        
+        hoursChecked++;
+      }
+      
+      // Calculate stats for each period
       let maxPrice = 0;
-      const periodData = periods.map(period => {
+      const periodData = upcomingPeriods.map((period, index) => {
         if (!period.data) return {...period, avg: 0, min: 0, max: 0, noData: true, isCurrent: false};
         
         const prices = period.data.filter(e => {
@@ -120,8 +165,8 @@ custom_fields:
         const max = Math.max(...prices);
         if (avg > maxPrice) maxPrice = avg;
         
-        // Check if current hour falls in this period
-        const isCurrent = currentHour >= period.start && currentHour < period.end && period.data === today;
+        // First period is always current
+        const isCurrent = index === 0;
         
         return {...period, avg, min, max, noData: false, isCurrent};
       });
@@ -132,12 +177,12 @@ custom_fields:
           output += `
             <div style="margin: 10px 0;">
               <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.9em;">
-                <span>${pd.icon} ${pd.name} <span style="color: rgba(255,255,255,0.6); font-size: 0.85em;">(${pd.hours})</span></span>
+                <span>${pd.icon} ${pd.label} <span style="color: rgba(255,255,255,0.6); font-size: 0.85em;">(${pd.hours})</span></span>
                 <span style="font-weight: 600; color: rgba(255,255,255,0.4);">-</span>
               </div>
               <div style="background: rgba(255,255,255,0.1); border-radius: 4px; height: 20px; position: relative;">
                 <div style="background: rgba(100,100,100,0.3); border-radius: 4px; height: 100%; width: 100%; display: flex; align-items: center; justify-content: center; font-size: 0.75em;">
-                  No data yet
+                  Ingen data endnu
                 </div>
               </div>
             </div>
@@ -157,7 +202,7 @@ custom_fields:
         output += `
           <div style="margin: 10px 0;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.9em;">
-              <span>${pd.icon} ${pd.name} <span style="color: rgba(255,255,255,0.6); font-size: 0.85em;">(${pd.hours})</span></span>
+              <span>${pd.icon} ${pd.label} <span style="color: rgba(255,255,255,0.6); font-size: 0.85em;">(${pd.hours})</span></span>
               <span style="font-weight: 600;">${pd.avg.toFixed(2)} kr</span>
             </div>
             <div style="background: rgba(255,255,255,0.1); border-radius: 4px; height: 20px; position: relative; ${highlight}">
