@@ -82,7 +82,7 @@ custom_fields:
         <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px;">
           ${graph}
           <div style="text-align: center;">
-            <div style="font-size: 1.4em; font-weight: bold; color: ${textColor};">${currentPrice.toFixed(2)} kr/KwH</div>
+            <div style="font-size: 1.4em; font-weight: bold; color: ${textColor};">${currentPrice.toFixed(2)} kr/kWh</div>
           </div>
         </div>
       `;
